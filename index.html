@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Helmet Hero V2.0 ⛑️</title>
+    <meta name="theme-color" content="#10b981">
+    
+    <!-- PWA -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Libraries -->
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+
+    <style>
+        body { font-family: 'Kanit', sans-serif; transition: background 1s ease; min-height: 100vh; overflow-x: hidden; }
+        
+        /* Dynamic Themes */
+        body.theme-morning { background: linear-gradient(135deg, #e0f2fe 0%, #dcfce3 100%); }
+        body.theme-afternoon { background: linear-gradient(135deg, #ffedd5 0%, #f3e8ff 100%); }
+
+        /* Glassmorphism */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.55);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.05);
+        }
+        
+        /* Nav & FAB */
+        .bottom-nav-curve {
+            border-top-left-radius: 2.5rem; border-top-right-radius: 2.5rem;
+            background: rgba(255,255,255,0.85); backdrop-filter: blur(20px);
+            box-shadow: 0 -10px 25px rgba(0,0,0,0.05);
+        }
+        .fab-scan {
+            position: absolute; top: -35px; left: 50%; transform: translateX(-50%);
+            width: 75px; height: 75px; border-radius: 50%;
+            background: linear-gradient(135deg, #10b981, #059669);
+            display: flex; align-items: center; justify-content: center;
+            border: 6px solid #ffffff; z-index: 50; color: white;
+            box-shadow: 0 10px 25px rgba(16, 185, 129, 0.4);
+            animation: pulse-fab 2s infinite; transition: transform 0.2s;
+        }
+        .fab-scan:active { transform: translateX(-50%) scale(0.9); }
+        @keyframes pulse-fab { 0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5); } 70% { box-shadow: 0 0 0 15px rgba(16, 185, 129, 0); } 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); } }
+
+        /* Gamification Avatars */
+        .avatar-novice { border: 4px solid #9ca3af; }
+        .avatar-guardian { border: 4px solid #fbbf24; box-shadow: 0 0 20px rgba(251,191,36,0.6); }
+        .avatar-hero { border: 4px solid #38bdf8; box-shadow: 0 0 25px rgba(56,189,248,0.8); animation: hero-glow 2s infinite alternate; }
+        @keyframes hero-glow { from { filter: hue-rotate(0deg); } to { filter: hue-rotate(45deg); } }
+
+        /* Gamification Stamps */
+        .stamp-slot { perspective: 1000px; }
+        .stamp-inner {
+            width: 100%; height: 100%; text-align: center;
+            transition: transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1);
+            transform-style: preserve-3d;
+        }
+        .stamp-slot.stamped .stamp-inner { transform: rotateY(180deg); }
+        .stamp-front, .stamp-back { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+        .stamp-front { background: rgba(255,255,255,0.6); border: 2px dashed #cbd5e1; }
+        .stamp-back { background: #10b981; transform: rotateY(180deg); font-size: 1.5rem; box-shadow: inset 0 0 10px rgba(0,0,0,0.2); }
+
+        /* Dashboard UI */
+        .watermark { position: absolute; right: -10px; bottom: -15px; font-size: 5rem; opacity: 0.1; z-index: 0; }
+        .circular-chart { max-width: 80%; max-height: 180px; }
+        .circle-bg { fill: none; stroke: rgba(0,0,0,0.05); stroke-width: 3.5; }
+        .circle { fill: none; stroke-width: 3; stroke-linecap: round; transition: stroke-dasharray 1.5s ease-out; }
+        .tab-content { display: none; opacity: 0; transition: opacity 0.3s; }
+        .tab-content.active { display: block; opacity: 1; }
+    </style>
+</head>
+<body class="theme-morning pb-24" onload="initApp()">
+
+    <!-- Header & Network -->
+    <header class="p-4 flex justify-between items-center z-10 relative">
+        <h1 class="text-2xl font-extrabold text-gray-800 drop-shadow-sm">⛑️ Helmet Hero</h1>
+        <div id="network-badge" class="px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700 shadow-sm border border-white transition-colors">
+            <i class="fas fa-wifi mr-1"></i> ออนไลน์
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 max-w-md relative z-10">
+
+        <!-- ================= TAB 1: SCANNER ================= -->
+        <div id="tab-scan" class="tab-content active">
+            <div class="glass-card rounded-3xl p-6 mb-4 text-center shadow-lg">
+                <h2 class="text-xl font-bold text-gray-800 mb-2">สแกนหมวกกันน็อก</h2>
+                <p class="text-sm text-gray-500 mb-4">หันกล้องไปที่ QR Code บนหมวกของเด็กๆ</p>
+                
+                <div class="relative bg-black rounded-2xl overflow-hidden shadow-inner w-full aspect-square flex items-center justify-center">
+                    <div id="reader" class="w-full h-full absolute inset-0"></div>
+                    <div class="absolute inset-0 border-2 border-green-500/50 rounded-2xl pointer-events-none z-10">
+                        <div class="w-full h-1 bg-green-500 shadow-[0_0_15px_#10b981] absolute top-0 animate-[scan_2s_ease-in-out_infinite]"></div>
+                    </div>
+                </div>
+
+                <div class="mt-5 flex gap-3 justify-center">
+                    <button onclick="startScanner()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-full font-bold shadow-lg transition transform active:scale-95 text-sm flex items-center">
+                        <i class="fas fa-camera mr-2"></i> เปิดกล้อง
+                    </button>
+                    <button onclick="stopScanner()" class="bg-white text-gray-700 px-5 py-2.5 rounded-full font-bold shadow transition text-sm">
+                        ปิด
+                    </button>
+                </div>
+            </div>
+            
+            <div id="offline-queue-alert" class="hidden glass-card bg-orange-50 border-orange-200 p-3 rounded-xl text-center text-orange-700 text-sm font-bold shadow-sm">
+                <i class="fas fa-sync fa-spin mr-1"></i> รอซิงค์ <span id="queue-count">0</span> รายการ (อัตโนมัติ)
+            </div>
+        </div>
+
+        <!-- ================= TAB 2: PARENT ================= -->
+        <div id="tab-parent" class="tab-content">
+            <!-- Login -->
+            <div id="parent-login" class="glass-card rounded-3xl p-8 text-center mt-8 shadow-lg">
+                <div class="text-6xl mb-4 text-blue-500"><i class="fas fa-mobile-alt"></i></div>
+                <h2 class="text-2xl font-bold text-gray-800 mb-2">ระบบผู้ปกครอง</h2>
+                <input type="tel" id="parent-phone" placeholder="เบอร์โทรศัพท์ (เช่น 080...)" class="w-full p-4 border-2 border-white bg-white/60 rounded-xl mb-4 text-center text-lg font-bold outline-none focus:border-blue-400 transition shadow-inner">
+                <button onclick="loginParent()" class="w-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-bold py-4 rounded-xl shadow-lg transition transform active:scale-95 text-lg">
+                    เข้าสู่ระบบ
+                </button>
+                <p class="text-xs text-gray-400 mt-4 cursor-pointer" onclick="document.getElementById('parent-phone').value='0800000001'">*Mock Test: กดที่นี่ใช้เบอร์ 0800000001</p>
+            </div>
+
+            <!-- Dashboard -->
+            <div id="parent-dashboard" class="hidden">
+                <div class="glass-card rounded-3xl p-6 text-center relative overflow-hidden mb-4 shadow-lg">
+                    <button onclick="logoutParent()" class="absolute top-4 right-4 text-gray-400 hover:text-red-500"><i class="fas fa-sign-out-alt"></i></button>
+                    
+                    <div class="relative w-28 h-28 mx-auto mb-3">
+                        <img id="p-avatar" src="" class="w-full h-full rounded-full object-cover bg-white z-10 relative avatar-novice transition-all duration-500">
+                        <div id="p-rank-badge" class="absolute -bottom-2 -right-2 bg-gray-600 text-white text-xs px-2 py-1 rounded-full font-bold border-2 border-white z-20 transition-all">NOVICE</div>
+                    </div>
+                    
+                    <h2 id="p-name" class="text-xl font-extrabold text-gray-800">ชื่อ</h2>
+                    <p id="p-class" class="text-gray-500 text-sm">ชั้น</p>
+                    
+                    <div class="flex justify-center items-center mt-4 bg-white/60 rounded-2xl py-2 px-4 inline-flex shadow-inner">
+                        <i class="fas fa-star text-yellow-400 text-xl mr-2"></i>
+                        <span class="text-2xl font-black text-gray-800" id="p-points">0</span>
+                        <span class="text-sm font-bold text-gray-500 ml-1">คะแนน</span>
+                    </div>
+                </div>
+
+                <div class="glass-card rounded-3xl p-6 mb-4 shadow-lg">
+                    <div class="flex justify-between items-end mb-4">
+                        <h3 class="font-extrabold text-gray-800"><i class="fas fa-stamp text-green-500 mr-1"></i> สะสมแสตมป์ฮีโร่</h3>
+                        <span class="text-xs font-bold text-gray-400" id="p-target-text">เป้าหมาย: 20 แต้ม</span>
+                    </div>
+                    
+                    <div class="grid grid-cols-5 gap-3" id="stamp-grid"></div>
+
+                    <div id="cert-action" class="mt-6 text-center hidden">
+                        <button onclick="downloadCertificate()" class="bg-gradient-to-r from-yellow-400 to-orange-500 text-white font-bold py-3 px-6 rounded-xl shadow-lg w-full transition transform active:scale-95 text-sm flex items-center justify-center">
+                            <i class="fas fa-certificate mr-2 text-xl"></i> รับเกียรติบัตรฮีโร่
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= TAB 3: ADMIN ================= -->
+        <div id="tab-admin" class="tab-content">
+            <div id="admin-login" class="glass-card rounded-3xl p-8 text-center mt-8 shadow-lg">
+                <div class="text-6xl mb-4 text-purple-500"><i class="fas fa-user-shield"></i></div>
+                <h2 class="text-2xl font-bold text-gray-800 mb-2">ระบบจัดการ (Admin)</h2>
+                <input type="password" id="admin-pin" placeholder="PIN (123456)" class="w-full p-4 border-2 border-white bg-white/60 rounded-xl mb-4 text-center text-xl font-bold tracking-[0.5em] outline-none shadow-inner" maxlength="6">
+                <button onclick="loginAdmin()" class="w-full bg-gradient-to-r from-purple-500 to-pink-600 text-white font-bold py-4 rounded-xl shadow-lg transition transform active:scale-95 text-lg">
+                    เข้าสู่ระบบ
+                </button>
+            </div>
+
+            <div id="admin-area" class="hidden">
+                <div class="flex bg-white/60 rounded-full p-1 mb-4 shadow-sm border border-white">
+                    <button onclick="switchAdminTab('dashboard')" id="btn-adm-dash" class="flex-1 py-2 rounded-full text-sm font-bold bg-white text-purple-600 shadow transition">สถิติ</button>
+                    <button onclick="switchAdminTab('settings')" id="btn-adm-set" class="flex-1 py-2 rounded-full text-sm font-bold text-gray-500 transition">ตั้งค่า</button>
+                </div>
+
+                <!-- Admin Dashboard -->
+                <div id="admin-sub-dash">
+                    <div class="glass-card rounded-2xl p-2 mb-4 flex items-center overflow-hidden border-l-4 border-l-green-500 shadow-md">
+                        <span class="text-green-500 mx-2 text-sm animate-pulse"><i class="fas fa-bolt"></i></span>
+                        <marquee scrollamount="4" class="text-xs font-bold text-gray-600 w-full" id="live-feed">กำลังโหลดข้อมูลล่าสุด...</marquee>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3 mb-4">
+                        <div class="glass-card p-4 rounded-3xl relative overflow-hidden shadow-md">
+                            <div class="watermark">👥</div>
+                            <p class="text-xs text-gray-500 font-bold z-10 relative">นักเรียนทั้งหมด</p>
+                            <p class="text-3xl font-black text-gray-800 my-1 z-10 relative" id="stat-total">0</p>
+                        </div>
+                        <div class="glass-card p-4 rounded-3xl relative overflow-hidden shadow-md">
+                            <div class="watermark">⛑️</div>
+                            <p class="text-xs text-gray-500 font-bold z-10 relative">สวมหมวกวันนี้</p>
+                            <p class="text-3xl font-black text-green-600 my-1 z-10 relative" id="stat-today">0</p>
+                        </div>
+                    </div>
+
+                    <div class="glass-card p-5 rounded-3xl mb-4 flex flex-col items-center shadow-md">
+                        <h3 class="font-extrabold text-gray-800 text-sm w-full text-left mb-2">เป้าหมายการสวมหมวกวันนี้</h3>
+                        <div class="w-32 h-32 relative flex justify-center">
+                            <svg viewBox="0 0 36 36" class="circular-chart text-green-500 drop-shadow">
+                                <path class="circle-bg" d="M18 2 a 16 16 0 0 1 0 32 a 16 16 0 0 1 0 -32" />
+                                <path class="circle" id="goal-ring" stroke="currentColor" stroke-dasharray="0, 100" d="M18 2 a 16 16 0 0 1 0 32 a 16 16 0 0 1 0 -32" />
+                            </svg>
+                            <div class="absolute inset-0 flex flex-col items-center justify-center">
+                                <span class="text-2xl font-black text-gray-800" id="stat-percent">0%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass-card p-5 rounded-3xl mb-4 shadow-md">
+                        <h3 class="font-extrabold text-gray-800 mb-4 text-sm">🏆 Top 3 ฮีโร่ (Streak สูงสุด)</h3>
+                        <div class="flex justify-center items-end space-x-2 h-32" id="podium-area"></div>
+                    </div>
+
+                    <div class="glass-card p-4 rounded-3xl mb-8 shadow-md">
+                        <h3 class="font-extrabold text-gray-800 mb-3 text-sm">สถิติ 7 วันย้อนหลัง</h3>
+                        <div class="h-48 w-full"><canvas id="scanChart"></canvas></div>
+                    </div>
+                </div>
+
+                <!-- Admin Settings -->
+                <div id="admin-sub-set" class="hidden pb-8">
+                    <div class="glass-card rounded-3xl p-5 mb-4 shadow-md">
+                        <h3 class="font-bold text-gray-800 mb-4"><i class="fas fa-cog mr-2"></i>ตั้งค่าระบบ</h3>
+                        <div class="flex justify-between items-center mb-4 pb-4 border-b border-gray-200/50">
+                            <div><p class="font-bold text-sm text-gray-700">เสียงพูด AI (TTS)</p></div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="cfg-tts" class="sr-only peer" checked>
+                                <div class="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                            </label>
+                        </div>
+                        <div class="mb-4">
+                            <label class="block font-bold text-sm text-gray-700 mb-1">เป้าหมายแต้มรับเกียรติบัตร</label>
+                            <input type="number" id="cfg-target" class="w-full p-3 rounded-xl border border-white bg-white/60 text-center font-bold outline-none" value="20">
+                        </div>
+                        <button onclick="saveAdminSettings()" class="w-full bg-purple-600 text-white font-bold py-3 rounded-xl shadow transition transform active:scale-95 text-sm">บันทึกการตั้งค่า</button>
+                    </div>
+
+                    <div class="glass-card rounded-3xl p-5 text-center shadow-md">
+                        <h3 class="font-bold text-gray-800 mb-2"><i class="fas fa-file-excel mr-2 text-green-600"></i>ส่งออกข้อมูล</h3>
+                        <p class="text-xs text-gray-500 mb-4">ดาวน์โหลด CSV รองรับภาษาไทยสมบูรณ์</p>
+                        <button onclick="exportCSV()" class="w-full bg-gray-800 text-white font-bold py-3 rounded-xl shadow transition transform active:scale-95 text-sm">ดาวน์โหลดไฟล์</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Bottom Navigation -->
+    <nav class="fixed bottom-0 w-full bottom-nav-curve z-40 pb-safe">
+        <div class="flex justify-around items-center h-16 relative px-2">
+            <button onclick="switchTab('parent')" class="flex flex-col items-center justify-center w-full text-gray-400 hover:text-blue-500 transition-colors" id="nav-parent">
+                <i class="fas fa-home text-xl mb-1"></i><span class="text-[10px] font-bold">ผู้ปกครอง</span>
+            </button>
+            <div class="w-full flex justify-center relative">
+                <button onclick="switchTab('scan')" class="fab-scan focus:outline-none">
+                    <i class="fas fa-qrcode text-3xl"></i>
+                </button>
+                <span class="text-[10px] font-bold mt-10 absolute -bottom-1 text-green-600" id="nav-scan-text">สแกน</span>
+            </div>
+            <button onclick="switchTab('admin')" class="flex flex-col items-center justify-center w-full text-gray-400 hover:text-purple-500 transition-colors" id="nav-admin">
+                <i class="fas fa-shield-alt text-xl mb-1"></i><span class="text-[10px] font-bold">จัดการ</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Hidden Certificate -->
+    <div id="certificate-template" class="fixed top-[200vh] left-0 w-[800px] h-[600px] bg-white p-10 flex flex-col items-center justify-center border-[20px] border-double border-yellow-500" style="background: linear-gradient(135deg, #fffbeb, #fef3c7); z-index:-100;">
+        <h1 class="text-5xl font-black text-yellow-700 mb-6 drop-shadow">เกียรติบัตรฮีโร่ความปลอดภัย</h1>
+        <p class="text-2xl text-gray-700 mb-8">ขอมอบให้เพื่อแสดงว่า</p>
+        <div class="w-40 h-40 rounded-full border-8 border-yellow-400 mb-6 overflow-hidden shadow-lg">
+            <img id="cert-avatar" src="" class="w-full h-full object-cover">
+        </div>
+        <h2 id="cert-name" class="text-4xl font-extrabold text-blue-800 mb-4">ชื่อนักเรียน</h2>
+        <p id="cert-class" class="text-xl text-gray-600 mb-10">ชั้นเรียน</p>
+        <p class="text-xl text-center text-gray-800 font-bold bg-white/50 p-4 rounded-xl">สวมหมวกกันน็อกมาโรงเรียนอย่างสม่ำเสมอเป็นแบบอย่างที่ดีเยี่ยม</p>
+    </div>
+
+<script>
+    // ==========================================
+    // CONFIGURATION (ใส่ URL ตรงนี้)
+    // ==========================================
+    const GAS_API_URL = "https://script.google.com/macros/s/AKfycbw4uAvthUzOBHGM6_TPW4zRWtmJUxZ8wjC-ZYKAP0XMkwHSu6ZLV4LOa2EC7035-wME/exec"; 
+
+    const APP_STATE = {
+        currentTab: 'scan',
+        offlineQueue: JSON.parse(localStorage.getItem('helmet_offline_queue') || '[]'),
+        settings: { tts: true, target: 20 },
+        parent: null, adminLoggedIn: false
+    };
+
+    let html5QrcodeScanner = null;
+    let chartInstance = null;
+
+    function initApp() {
+        applyDynamicTheme();
+        setInterval(applyDynamicTheme, 60000 * 30);
+        window.addEventListener('online', handleNetworkChange);
+        window.addEventListener('offline', handleNetworkChange);
+        handleNetworkChange();
+    }
+
+    function applyDynamicTheme() {
+        const hour = new Date().getHours();
+        document.body.className = (hour >= 5 && hour < 15) ? 'theme-morning pb-24' : 'theme-afternoon pb-24';
+    }
+
+    function switchTab(tabId) {
+        if(APP_STATE.currentTab === tabId) return;
+        if(APP_STATE.currentTab === 'scan') stopScanner(); // Optimize: Clear memory
+
+        document.querySelectorAll('.tab-content').forEach(el => {
+            el.classList.remove('active');
+            setTimeout(() => el.style.display = 'none', 300);
+        });
+        
+        ['nav-parent', 'nav-admin', 'nav-scan-text'].forEach(id => {
+            document.getElementById(id).classList.remove('text-blue-500', 'text-purple-500', 'text-green-600');
+        });
+
+        setTimeout(() => {
+            const newTab = document.getElementById('tab-' + tabId);
+            newTab.style.display = 'block';
+            setTimeout(() => newTab.classList.add('active'), 50);
+            
+            if(tabId === 'parent') document.getElementById('nav-parent').classList.add('text-blue-500');
+            if(tabId === 'admin') document.getElementById('nav-admin').classList.add('text-purple-500');
+            if(tabId === 'scan') document.getElementById('nav-scan-text').classList.add('text-green-600');
+
+            APP_STATE.currentTab = tabId;
+            if(tabId === 'admin' && APP_STATE.adminLoggedIn) loadDashboard();
+        }, 300);
+    }
+
+    // Network & Sync
+    function handleNetworkChange() {
+        const isOnline = navigator.onLine;
+        const badge = document.getElementById('network-badge');
+        badge.innerHTML = isOnline ? '<i class="fas fa-wifi mr-1"></i> ออนไลน์' : '<i class="fas fa-plane mr-1"></i> ออฟไลน์';
+        badge.className = isOnline ? 'px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700 shadow-sm border border-white' 
+                                   : 'px-3 py-1 rounded-full text-xs font-bold bg-red-500 text-white shadow-sm border border-white';
+        if (isOnline && APP_STATE.offlineQueue.length > 0) syncOfflineData();
+        document.getElementById('offline-queue-alert').classList.toggle('hidden', APP_STATE.offlineQueue.length === 0);
+        document.getElementById('queue-count').innerText = APP_STATE.offlineQueue.length;
+    }
+
+    async function syncOfflineData() {
+        if(!GAS_API_URL || APP_STATE.offlineQueue.length === 0) return;
+        try {
+            const res = await fetch(GAS_API_URL, { method: 'POST', body: JSON.stringify({ action: 'syncOffline', scans: APP_STATE.offlineQueue }) });
+            if ((await res.json()).success) {
+                APP_STATE.offlineQueue = [];
+                localStorage.setItem('helmet_offline_queue', '[]');
+                handleNetworkChange();
+                Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'ซิงค์ข้อมูลออฟไลน์สำเร็จ', showConfirmButton: false, timer: 2000 });
+            }
+        } catch (e) {} // เก็บไว้รอบหน้าถ้ายังพัง
+    }
+
+    // Sensory
+    function triggerSensory(name) {
+        if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = ctx.createOscillator(), gain = ctx.createGain();
+            osc.connect(gain); gain.connect(ctx.destination);
+            osc.type = 'sine'; osc.frequency.setValueAtTime(880, ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(1760, ctx.currentTime + 0.1);
+            gain.gain.setValueAtTime(0.1, ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
+            osc.start(); osc.stop(ctx.currentTime + 0.2);
+        } catch(e) {}
+        
+        if (APP_STATE.settings.tts && window.speechSynthesis) {
+            window.speechSynthesis.cancel(); // Optimize: clear queue
+            const msg = new SpeechSynthesisUtterance(`ยอดเยี่ยม น้อง${name}`);
+            msg.lang = 'th-TH'; msg.rate = 1.1;
+            window.speechSynthesis.speak(msg);
+        }
+    }
+
+    // Camera
+    function startScanner() {
+        if (!window.isSecureContext && location.hostname !== 'localhost') return Swal.fire('ข้อผิดพลาด', 'กล้องต้องการ HTTPS', 'error');
+        if(html5QrcodeScanner) stopScanner();
+        
+        html5QrcodeScanner = new Html5Qrcode("reader");
+        html5QrcodeScanner.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } }, onScanSuccess, ()=>{})
+        .catch(() => Swal.fire('ข้อผิดพลาด', 'ไม่สามารถเปิดกล้องได้', 'error'));
+    }
+
+    function stopScanner() {
+        if (html5QrcodeScanner) {
+            try { html5QrcodeScanner.stop(); } catch(e) {}
+            html5QrcodeScanner.clear(); html5QrcodeScanner = null;
+        }
+    }
+
+    let isScanning = false;
+    async function onScanSuccess(text) {
+        if(isScanning) return;
+        isScanning = true; stopScanner();
+        Swal.fire({ title: 'กำลังตรวจสอบ...', didOpen: () => Swal.showLoading() });
+
+        if (!navigator.onLine) {
+            APP_STATE.offlineQueue.push({ id: text, time: Date.now() });
+            localStorage.setItem('helmet_offline_queue', JSON.stringify(APP_STATE.offlineQueue));
+            handleNetworkChange(); triggerSensory("ฮีโร่");
+            Swal.fire('โหมดออฟไลน์', 'บันทึกแล้ว จะส่งข้อมูลเมื่อมีเน็ต', 'info');
+            setTimeout(() => isScanning = false, 2000);
+            return;
+        }
+
+        try {
+            let res = !GAS_API_URL ? { success: true, message: 'รับแต้มสำเร็จ!', nickname: 'จำลอง' + text.substring(0,3), points: 15 } 
+                                   : await (await fetch(GAS_API_URL, { method: 'POST', body: JSON.stringify({ action: 'scan', qrData: text }) })).json();
+            
+            if (res.success) {
+                triggerSensory(res.nickname); confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+                Swal.fire({ title: 'สำเร็จ!', text: `${res.message} (แต้มรวม: ${res.points})`, icon: 'success', timer: 2000, showConfirmButton: false });
+            } else {
+                if(res.alreadyScanned && APP_STATE.settings.tts) {
+                    window.speechSynthesis.cancel();
+                    window.speechSynthesis.speak(new SpeechSynthesisUtterance(`สแกนไปแล้วค่ะ น้อง${res.nickname}`));
+                }
+                Swal.fire('แจ้งเตือน', res.message, 'warning');
+            }
+        } catch (e) { Swal.fire('ข้อผิดพลาด', 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้', 'error'); }
+        setTimeout(() => isScanning = false, 2000);
+    }
+
+    // Parent
+    async function loginParent() {
+        const phone = document.getElementById('parent-phone').value;
+        if(phone.length < 9) return Swal.fire('แจ้งเตือน', 'กรอกเบอร์โทรให้ถูกต้อง', 'warning');
+        Swal.fire({ title: 'กำลังค้นหา...', didOpen: () => Swal.showLoading() });
+
+        try {
+            let data = !GAS_API_URL ? { studentId: 'ST001', fullName: 'ด.ช.สมชาย ใจดี', nickname: 'สมชาย', classRoom: 'อ.2/1', photoUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=ST001', points: 20 }
+                                    : await (await fetch(`${GAS_API_URL}?action=getParent&phone=${phone}`)).json();
+            if(data.error) throw new Error(data.error);
+            
+            APP_STATE.parent = data;
+            document.getElementById('parent-login').classList.add('hidden');
+            document.getElementById('parent-dashboard').classList.remove('hidden');
+            Swal.close(); renderParentUI();
+        } catch (e) { Swal.fire('ไม่พบข้อมูล', e.message, 'error'); }
+    }
+
+    function logoutParent() {
+        APP_STATE.parent = null;
+        document.getElementById('parent-phone').value = '';
+        document.getElementById('parent-dashboard').classList.add('hidden');
+        document.getElementById('parent-login').classList.remove('hidden');
+    }
+
+    function renderParentUI() {
+        const d = APP_STATE.parent;
+        document.getElementById('p-name').innerText = `${d.nickname} (${d.fullName})`;
+        document.getElementById('p-class').innerText = d.classRoom;
+        document.getElementById('p-points').innerText = d.points;
+        document.getElementById('p-avatar').src = d.photoUrl;
+        
+        const isHero = d.points >= APP_STATE.settings.target;
+        document.getElementById('p-avatar').className = `w-full h-full rounded-full object-cover bg-white z-10 relative transition-all duration-500 ${isHero ? 'avatar-hero' : (d.points >= APP_STATE.settings.target/2 ? 'avatar-guardian' : 'avatar-novice')}`;
+        const b = document.getElementById('p-rank-badge');
+        b.innerText = isHero ? 'HERO' : (d.points >= APP_STATE.settings.target/2 ? 'GUARDIAN' : 'NOVICE');
+        b.className = `absolute -bottom-2 -right-2 text-white text-xs px-2 py-1 rounded-full font-bold border-2 border-white z-20 transition-all ${isHero ? 'bg-blue-500 shadow-lg' : (d.points >= APP_STATE.settings.target/2 ? 'bg-yellow-500' : 'bg-gray-500')}`;
+        
+        document.getElementById('cert-action').classList.toggle('hidden', !isHero);
+        if(isHero) confetti();
+        
+        // Optimize: Sequential Stamps Animation
+        const grid = document.getElementById('stamp-grid');
+        grid.innerHTML = '';
+        const currentPoints = d.points % 10 === 0 && d.points > 0 ? 10 : d.points % 10;
+        
+        for (let i = 1; i <= 10; i++) {
+            const slot = document.createElement('div');
+            slot.className = 'stamp-slot w-full aspect-square';
+            slot.innerHTML = `<div class="stamp-inner"><div class="stamp-front text-gray-400 text-xs font-bold">${i}</div><div class="stamp-back rounded-full flex items-center justify-center text-white"><i class="fas fa-check"></i></div></div>`;
+            grid.appendChild(slot);
+            if(i <= currentPoints) setTimeout(() => slot.classList.add('stamped'), i * 150);
+        }
+    }
+
+    function downloadCertificate() {
+        const d = APP_STATE.parent;
+        document.getElementById('cert-name').innerText = d.fullName;
+        document.getElementById('cert-class').innerText = d.classRoom;
+        document.getElementById('cert-avatar').src = d.photoUrl; 
+        Swal.fire({ title: 'กำลังสร้างเกียรติบัตร...', didOpen: () => Swal.showLoading() });
+        setTimeout(() => {
+            html2canvas(document.getElementById('certificate-template'), { scale: 2, useCORS: true }).then(canvas => {
+                const link = document.createElement('a');
+                link.download = `Hero_Certificate_${d.studentId}.png`;
+                link.href = canvas.toDataURL('image/png'); link.click();
+                Swal.close(); confetti();
+            });
+        }, 1000);
+    }
+
+    // Admin
+    function loginAdmin() {
+        if(document.getElementById('admin-pin').value === '123456') {
+            document.getElementById('admin-login').classList.add('hidden');
+            document.getElementById('admin-area').classList.remove('hidden');
+            APP_STATE.adminLoggedIn = true; loadDashboard();
+        } else Swal.fire('ผิดพลาด', 'PIN ไม่ถูกต้อง', 'error');
+    }
+
+    function switchAdminTab(t) {
+        document.getElementById('admin-sub-dash').classList.toggle('hidden', t !== 'dashboard');
+        document.getElementById('admin-sub-set').classList.toggle('hidden', t !== 'settings');
+        document.getElementById('btn-adm-dash').className = `flex-1 py-2 rounded-full text-sm font-bold ${t==='dashboard' ? 'bg-white text-purple-600 shadow' : 'text-gray-500'}`;
+        document.getElementById('btn-adm-set').className = `flex-1 py-2 rounded-full text-sm font-bold ${t==='settings' ? 'bg-white text-purple-600 shadow' : 'text-gray-500'}`;
+        if(t==='dashboard') loadDashboard();
+    }
+
+    async function loadDashboard() {
+        try {
+            let d = !GAS_API_URL ? { totalStudents: 150, todayScans: 120, chartLabels: ['จ','อ','พ','พฤ','ศ','ส','อา'], chartData: [100, 110, 105, 130, 120, 140, 120], top3: [{name:'ฟ้า', streak:15, avatar:'https://api.dicebear.com/7.x/avataaars/svg?seed=1'},{name:'ชาย', streak:14, avatar:'https://api.dicebear.com/7.x/avataaars/svg?seed=2'},{name:'มาวิน', streak:10, avatar:'https://api.dicebear.com/7.x/avataaars/svg?seed=3'}] }
+                                 : await (await fetch(`${GAS_API_URL}?action=getDashboard`)).json();
+            
+            document.getElementById('stat-total').innerText = d.totalStudents;
+            document.getElementById('stat-today').innerText = d.todayScans;
+            
+            const pc = d.totalStudents > 0 ? Math.round((d.todayScans/d.totalStudents)*100) : 0;
+            document.getElementById('stat-percent').innerText = pc + '%';
+            setTimeout(() => document.getElementById('goal-ring').setAttribute('stroke-dasharray', `${pc}, 100`), 100);
+            
+            const h = new Date().getHours(), m = new Date().getMinutes().toString().padStart(2, '0');
+            document.getElementById('live-feed').innerHTML = `🟢 อัปเดตล่าสุด ${h}:${m} | เด็กสแกนแล้ว ${pc}%`;
+            
+            if(d.top3 && d.top3.length>=3) {
+                document.getElementById('podium-area').innerHTML = `
+                    <div class="flex flex-col items-center justify-end w-1/3 h-full"><img src="${d.top3[1].avatar}" class="w-12 h-12 rounded-full border-4 border-gray-300 mb-1 z-10 bg-white"><div class="bg-gradient-to-t from-gray-400 to-gray-200 w-full h-12 rounded-t-xl flex justify-center pt-1 font-black text-gray-700 shadow-inner text-xs">2nd</div></div>
+                    <div class="flex flex-col items-center justify-end w-1/3 h-full relative"><div class="absolute -top-6 text-2xl animate-bounce">👑</div><img src="${d.top3[0].avatar}" class="w-14 h-14 rounded-full border-4 border-yellow-400 mb-1 z-10 bg-white shadow-lg"><div class="bg-gradient-to-t from-yellow-500 to-yellow-300 w-full h-20 rounded-t-xl flex justify-center pt-1 font-black text-yellow-900 shadow-inner text-xs">1st</div></div>
+                    <div class="flex flex-col items-center justify-end w-1/3 h-full"><img src="${d.top3[2].avatar}" class="w-10 h-10 rounded-full border-4 border-orange-300 mb-1 z-10 bg-white"><div class="bg-gradient-to-t from-orange-400 to-orange-200 w-full h-8 rounded-t-xl flex justify-center pt-1 font-black text-orange-900 shadow-inner text-xs">3rd</div></div>
+                `;
+            }
+
+            // Optimize: Re-render Chart fix
+            const ctx = document.getElementById('scanChart').getContext('2d');
+            if (chartInstance) chartInstance.destroy();
+            const grad = ctx.createLinearGradient(0,0,0,180); grad.addColorStop(0, 'rgba(16,185,129,0.5)'); grad.addColorStop(1, 'rgba(16,185,129,0)');
+            chartInstance = new Chart(ctx, { type: 'line', data: { labels: d.chartLabels, datasets: [{ data: d.chartData, borderColor: '#10b981', backgroundColor: grad, borderWidth: 3, tension: 0.4, fill: true, pointBackgroundColor: '#fff', pointBorderColor: '#10b981' }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { borderDash: [5,5] } }, x: { grid: { display: false } } } } });
+        } catch(e) {}
+    }
+
+    function saveAdminSettings() {
+        APP_STATE.settings.tts = document.getElementById('cfg-tts').checked;
+        APP_STATE.settings.target = parseInt(document.getElementById('cfg-target').value) || 20;
+        Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'บันทึกสำเร็จ', showConfirmButton: false, timer: 1500 });
+    }
+
+    function exportCSV() {
+        if(!GAS_API_URL) return Swal.fire('Mock Mode', 'ทดสอบ UI ไม่สามารถดาวน์โหลดไฟล์จริงได้', 'info');
+        window.open(`${GAS_API_URL}?action=exportCSV`, '_blank');
+    }
+</script>
+</body>
+</html>
